@@ -97,19 +97,21 @@ model = Model().to(device)
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-epochs = 1000
-
+epochs = 100
+losses = []
 for epoch in range(epochs):
     
     prediction = model(X_tensor)
     
     loss = criterion(prediction, y_tensor)
     
+    losses.append(loss.detach().cpu().numpy())
+    
     optimizer.zero_grad() #reset gradients
     loss.backward() #run it through net>?
     optimizer.step()
     
-    if epoch % 100 == 0:
+    if epoch % 50 == 0:
         print("Epoch:", epoch, "Loss:", loss.item())
 
 with torch.no_grad():
@@ -155,7 +157,13 @@ with torch.no_grad():
         "Survived": pred.argmax().item()
         })
         count += 1
+import matplotlib.pyplot as plt
+plt.plot(range(epochs), losses)
+plt.ylabel("loss/error")
+plt.xlabel('Epoch')
+plt.show()
 
 predictions = pd.DataFrame(pred_list)
 # predictions = predictions.rename(columns={"PassengerId":"Survived"})
 predictions.to_csv("Predictions.csv",index=False)
+
