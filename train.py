@@ -25,10 +25,11 @@ X["Cabin"]=X["Cabin"].replace(regex=r"[ E]{2,}",value="E")
 X["Cabin"]=X["Cabin"].replace(regex=r"[ F]{2,}",value="F")
 X["Cabin"]=X["Cabin"].replace(regex=r"[ G]{2,}",value="G")
 
-xx = X.drop(["Name"],axis=1)
-xx["Ticket"] = xx["Ticket"].replace(regex="[\W]",value="")
-xx["Ticket"] = xx["Ticket"].replace(regex="LINE",value="0")
-xx["Ticket"] = xx["Ticket"].replace(regex="[a-zA-Z]",value="")
+# xx = X.drop(["Name"],axis=1)
+xx = X.drop(["Name","Ticket"],axis=1)
+# xx["Ticket"] = xx["Ticket"].replace(regex="[\W]",value="")
+# xx["Ticket"] = xx["Ticket"].replace(regex="LINE",value="0")
+# xx["Ticket"] = xx["Ticket"].replace(regex="[a-zA-Z]",value="")
 xx["Sex"] = xx["Sex"].replace(regex="female", value="1")
 xx["Sex"] = xx["Sex"].replace(regex="male", value="0")
 xx["Embarked"] = xx["Embarked"].replace(regex="S", value="0") #Southampton
@@ -60,7 +61,7 @@ print("Y Tensor Shape",y_tensor.shape)
 
 
 class Model(nn.Module):#   9 elements, Alive or Dead, Bc why not
-    def __init__(self, input_size=10, output_size=2, hidden_layers=64):
+    def __init__(self, input_size=9, output_size=2, hidden_layers=64):
         super(Model, self).__init__()
         self.fc1 = nn.Linear(input_size,hidden_layers)
         self.relu = nn.ReLU()
@@ -81,9 +82,9 @@ model = Model().to(device)
 
 criterion = nn.MSELoss()
 # criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(model.parameters(), lr=0.01)
+optimizer = optim.AdamW(model.parameters(), lr=0.001)
 
-epochs = 3500
+epochs = 150
 losses = []
 for epoch in range(epochs):
     
@@ -100,6 +101,14 @@ for epoch in range(epochs):
     if epoch % 1000 == 0:
         print("Epoch:", epoch, "Loss:", loss.item())
 print("Epoch:", epoch, "Loss:", loss.item())
+
+import matplotlib.pyplot as plt
+plt.plot(range(epochs), losses)
+plt.ylabel("loss/error")
+plt.xlabel('Epoch')
+plt.savefig("Loss.Error_Vs._Epoch.png",format='PNG',bbox_inches='tight')
+plt.show()
+# with open("Loss/Error Vs. Epoch.png", 'w') as f:
 
 torch.save(model.state_dict(), 'model_weights.pth')
 
@@ -156,9 +165,4 @@ predictions = pd.DataFrame(pred_list)
 predictions.to_csv("Predictions.csv",index=False)
 print("Last prediction:",pred)
 print(pred.argmax())
-import matplotlib.pyplot as plt
-plt.plot(range(epochs), losses)
-plt.ylabel("loss/error")
-plt.xlabel('Epoch')
-plt.show()
 
