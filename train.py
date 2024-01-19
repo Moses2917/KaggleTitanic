@@ -13,6 +13,7 @@ X = data.drop(["Survived"], axis=1)
 y = data[["Survived"]].values
 # print(y)
 
+# print(X.dropna())
 from sklearn.impute import KNNImputer
 #somehow group the classes to the cabins maybe get the percentages of people in cabin currently, and assgin like that
 X["Cabin"]=X["Cabin"].replace(regex=r"[\d]+",value="")
@@ -24,35 +25,16 @@ X["Cabin"]=X["Cabin"].replace(regex=r"[ E]{2,}",value="E")
 X["Cabin"]=X["Cabin"].replace(regex=r"[ F]{2,}",value="F")
 X["Cabin"]=X["Cabin"].replace(regex=r"[ G]{2,}",value="G")
 
-xx = X.drop(["Name","Ticket"],axis=1)
-# xx = pd.get_dummies(xx,["age","Sex","Embarked"]) # can't use because it gets rid of nans
+xx = X.drop(["Name"],axis=1)
+xx["Ticket"] = xx["Ticket"].replace(regex="[\W]",value="")
+xx["Ticket"] = xx["Ticket"].replace(regex="LINE",value="0")
+xx["Ticket"] = xx["Ticket"].replace(regex="[a-zA-Z]",value="")
 xx["Sex"] = xx["Sex"].replace(regex="female", value="1")
 xx["Sex"] = xx["Sex"].replace(regex="male", value="0")
 xx["Embarked"] = xx["Embarked"].replace(regex="S", value="0") #Southampton
 xx["Embarked"] = xx["Embarked"].replace(regex="C", value="1") #Cherbourg
 xx["Embarked"]=xx["Embarked"].replace(regex="Q",value="2") #Queenstown
 
-cabDict={
-    "A":1,
-    "B":2,
-    "C":3,
-    "D":4,
-    "E":5,
-    "F":6,
-    "G":7,
-    "T":0, # 0 because its the deck
-}
-
-# for val in xx["Cabin"]:
-# for val in xx.items("Cabin"):
-#     if "nan" in str(val):
-#         pass
-#     else:
-#         if match(r"[A-Z]",val): #ie: fg, [f], [g], choose the first one, so f
-#             valLetter = findall(r"[A-Z]",val)[0]
-#             NewVal = cabDict[valLetter]
-#             xx.at["Cabin",val] = NewVal
-## Hashtag: IGIVEUPTIMEFORTHEDIRTYBUTEASYWAY
 xx["Cabin"]=xx["Cabin"].replace(regex=r"A",value="1")
 xx["Cabin"]=xx["Cabin"].replace(regex=r"B",value="2")
 xx["Cabin"]=xx["Cabin"].replace(regex=r"C",value="3")
@@ -62,20 +44,23 @@ xx["Cabin"]=xx["Cabin"].replace(regex=r"F",value="6")
 xx["Cabin"]=xx["Cabin"].replace(regex=r"G",value="7")
 xx["Cabin"]=xx["Cabin"].replace(regex=r"T",value="0")
 
-
-print(xx)
+# xx = pd.get_dummies(xx)
+# print(xx)
 # colm_Names = ["PassengerId","Pclass","Sex","Age","SibSp","Parch","Fare","Cabin","Embarked"] # no need to convert, just send it!
-impute = KNNImputer(n_neighbors=5,weights="uniform")
+impute = KNNImputer(n_neighbors=9,weights="uniform")
 X_data = impute.fit_transform(xx.values)
 # print(pd.DataFrame(data=X_data)) # no need to convert, just send it!
-
+print(X_data)
 device = torch.device("cuda")
-#FOR NOW I AM NOT GOING TO INCLUDE THE NAMES AND TICKETS
+#FOR NOW I AM NOT GOING TO INCLUDE THE NAMES 
 X_tensor = torch.tensor(X_data,dtype=torch.float32).to(device)
 y_tensor = torch.tensor(y,dtype=torch.float32).to(device)
+print("X Tensor Shape",X_tensor.shape)
+print("Y Tensor Shape",y_tensor.shape)
+
 
 class Model(nn.Module):#   9 elements, Alive or Dead, Bc why not
-    def __init__(self, input_size=9, output_size=2, hidden_layers=32):
+    def __init__(self, input_size=10, output_size=2, hidden_layers=64):
         super(Model, self).__init__()
         self.fc1 = nn.Linear(input_size,hidden_layers)
         self.relu = nn.ReLU()
@@ -95,9 +80,10 @@ class Model(nn.Module):#   9 elements, Alive or Dead, Bc why not
 model = Model().to(device)
 
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+# criterion = nn.CrossEntropyLoss()
+optimizer = optim.AdamW(model.parameters(), lr=0.01)
 
-epochs = 100
+epochs = 3500
 losses = []
 for epoch in range(epochs):
     
@@ -105,14 +91,17 @@ for epoch in range(epochs):
     
     loss = criterion(prediction, y_tensor)
     
-    losses.append(loss.detach().cpu().numpy())
+    losses.append(loss.item())
     
     optimizer.zero_grad() #reset gradients
     loss.backward() #run it through net>?
     optimizer.step()
     
-    if epoch % 50 == 0:
+    if epoch % 1000 == 0:
         print("Epoch:", epoch, "Loss:", loss.item())
+print("Epoch:", epoch, "Loss:", loss.item())
+
+torch.save(model.state_dict(), 'model_weights.pth')
 
 with torch.no_grad():
     X = pd.read_csv("test.csv")
@@ -124,8 +113,11 @@ with torch.no_grad():
     X["Cabin"]=X["Cabin"].replace(regex=r"[ E]{2,}",value="E")
     X["Cabin"]=X["Cabin"].replace(regex=r"[ F]{2,}",value="F")
     X["Cabin"]=X["Cabin"].replace(regex=r"[ G]{2,}",value="G")
-
-    xx = X.drop(["Name","Ticket"],axis=1)
+    
+    xx = X.drop(["Name"],axis=1)
+    xx["Ticket"] = xx["Ticket"].replace(regex="[\W]",value="")
+    xx["Ticket"] = xx["Ticket"].replace(regex="LINE",value="0")
+    xx["Ticket"] = xx["Ticket"].replace(regex="[a-zA-Z]",value="")
     # xx = pd.get_dummies(xx,["age","Sex","Embarked"]) # can't use because it gets rid of nans
     xx["Sex"] = xx["Sex"].replace(regex="female", value="1")
     xx["Sex"] = xx["Sex"].replace(regex="male", value="0")
@@ -142,7 +134,7 @@ with torch.no_grad():
     xx["Cabin"]=xx["Cabin"].replace(regex=r"T",value="0")
     impute = KNNImputer(n_neighbors=5,weights="uniform")
     X_data = impute.fit_transform(xx.values)
-    print(xx)
+    # print(xx)
     count = 0
     offset = 892
     pred_list = []
@@ -151,19 +143,22 @@ with torch.no_grad():
         person = personData
         info = torch.tensor(person,dtype=torch.float32).to(device)
         pred = model(info)
+        # print(numpy.argmax(prediction.cpu()).item())
         # print(pred.argmax().item()) #prediction if dead or alive
         pred_list.append({
         "PassengerId": offset + count,
         "Survived": pred.argmax().item()
         })
         count += 1
+
+predictions = pd.DataFrame(pred_list)
+# predictions = predictions.rename(columns={"PassengerId":"Survived"})
+predictions.to_csv("Predictions.csv",index=False)
+print("Last prediction:",pred)
+print(pred.argmax())
 import matplotlib.pyplot as plt
 plt.plot(range(epochs), losses)
 plt.ylabel("loss/error")
 plt.xlabel('Epoch')
 plt.show()
-
-predictions = pd.DataFrame(pred_list)
-# predictions = predictions.rename(columns={"PassengerId":"Survived"})
-predictions.to_csv("Predictions.csv",index=False)
 
